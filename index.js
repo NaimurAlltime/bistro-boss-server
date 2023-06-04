@@ -30,9 +30,51 @@ async function run() {
 
 
 
+    const usersCollection = client.db("bistroBossDB").collection("users");
     const menuCollection = client.db("bistroBossDB").collection("menu");
     const reviewsCollection = client.db("bistroBossDB").collection("reviews");
     const cartCollection = client.db("bistroBossDB").collection("carts");
+
+    // users related apis 
+    // get api 
+    app.get('/users', async(req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    })
+    // user post api 
+    app.post('/users', async(req, res) => {
+      const user = req.body;
+      const query = { email: user.email };
+      const existingUser = await usersCollection.findOne(query);
+      if(existingUser){
+        return res.send({message: "user already exit"})
+      }
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
+    })
+
+    // user update api with admin 
+    app.patch('/users/admin/:id', async(req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+
+      const updateDoc = {
+        $set: {
+          role: 'admin'
+        },
+      };
+
+      const result = await usersCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    })
+
+    // user delete api 
+    app.delete('/users/:id', async(req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await usersCollection.deleteOne(query);
+      res.send(result);
+    })
 
     // get all menu data 
     app.get('/menu', async(req, res) => {
