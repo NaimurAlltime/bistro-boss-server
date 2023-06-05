@@ -139,6 +139,21 @@ async function run() {
         res.send(result);
     })
 
+    // post api menu with specific admin role
+    app.post('/menu', verifyJWT, verifyAdmin, async(req, res) => {
+      const newItem = req.body;
+      const result = await menuCollection.insertOne(newItem);
+      res.send(result);
+    })
+
+    // delete api with menu 
+    app.delete('/menu/:id', verifyJWT, verifyAdmin, async(req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await menuCollection.deleteOne(query);
+      res.send(result);
+    })
+
     // get all reviews data 
     app.get('/reviews', async(req, res) => {
         const result = await reviewsCollection.find().toArray();
