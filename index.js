@@ -1,9 +1,10 @@
 const express = require('express');
 const app = express()
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-require('dotenv').config()
-const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+require('dotenv').config()
+const stripe = require('stripe')(process.env.PAYMENT_SECRET_KEY)
 const port = process.env.PORT | 5000;
 
 // middleware 
@@ -13,14 +14,14 @@ app.use(express.json())
 
 // jwt function 
 const verifyJWT = (req, res, next) => {
-  console.log('hitting verify jwt');
-  console.log(req.headers.authorization);
+  // console.log('hitting verify jwt');
+  // console.log(req.headers.authorization);
   const authorization = req.headers.authorization;
   if(!authorization){
      return res.status(401).send({error: true, message: 'unauthorized access'})
   }
   const token = authorization.split(' ')[1];
-  console.log('token inside verify jwt', token);
+  // console.log('token inside verify jwt', token);
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, decoded) => {
     if(error){
       return res.status(401).send({error: true, message: 'unauthorized access'})
@@ -54,6 +55,7 @@ async function run() {
     const menuCollection = client.db("bistroBossDB").collection("menu");
     const reviewsCollection = client.db("bistroBossDB").collection("reviews");
     const cartCollection = client.db("bistroBossDB").collection("carts");
+    const paymentCollection = client.db("bistroBossDB").collection("payments");
 
 
     // jwt api 
@@ -195,6 +197,36 @@ async function run() {
       const result = await cartCollection.deleteOne(query);
       res.send(result);
     })
+
+    // create payment intent post api (payment gateway)
+      // create payment intent
+      app.post('/create-payment-intent', verifyJWT, async (req, res) => {
+        const { price } = req.body;
+        const amount = parseInt(price * 100);
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: amount,
+          currency: 'usd',
+          payment_method_types: ['card']
+        });
+  
+        res.send({
+          clientSecret: paymentIntent.client_secret
+        })
+      })
+
+
+
+   // payment post  api
+    app.post('/payments', verifyJWT, async (req, res) => {
+      const payment = req.body;
+      const insertResult = await paymentCollection.insertOne(payment);
+
+      const query = { _id: { $in: payment.cartItems.map(id => new ObjectId(id)) } }
+      const deleteResult = await cartCollection.deleteMany(query)
+
+      res.send({ insertResult, deleteResult });
+    })
+
 
 
     // Send a ping to confirm a successful connection
